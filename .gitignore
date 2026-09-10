@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Environment variables — never commit secrets
+server/.env
+client/.env
+
+# Build output
+client/dist/
+client/dist-ssr/
+
+# Prisma generated client
+server/node_modules/.prisma/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+.claude/
+
+# Generated Excel reports
+server/exports/
+
+# Temp
+*.tmp
+*.temp

@@ -1,0 +1,15 @@
+export const STORAGE_LOCATIONS = [
+  'GENERAL_SCRAP_YARD',
+  'HAZARDOUS_WASTE_STORAGE',
+  'EWASTE_STORAGE',
+  'PLASTICS_STORAGE',
+  'METALS_STORAGE',
+];
+
+export const STORAGE_LOCATION_LABELS = {
+  GENERAL_SCRAP_YARD: 'General Scrap Yard',
+  HAZARDOUS_WASTE_STORAGE: 'Hazardous Waste Storage',
+  EWASTE_STORAGE: 'E-Waste Storage',
+  PLASTICS_STORAGE: 'Plastics Storage',
+  METALS_STORAGE: 'Metals Storage',
+};

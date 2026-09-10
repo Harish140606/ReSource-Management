@@ -1,0 +1,320 @@
+// ReSource Management — Prisma Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  EMPLOYEE
+  DEPT_HEAD
+  IREP
+  SECURITY
+  FACILITY_MANAGER
+  ADMIN
+}
+
+enum DeclarationStatus {
+  DRAFT
+  SUBMITTED
+  DEPT_APPROVED
+  IREP_AUTHORIZED
+  COMPLETED
+}
+
+enum WasteSource {
+  BAT
+  SOFT
+}
+
+enum WasteType {
+  GENERAL
+  HAZARDOUS
+  EWASTE
+}
+
+enum LedgerSource {
+  BAT
+  SOFT
+  COMBINED
+}
+
+enum ExportTrigger {
+  DECLARATION_COMPLETED
+  CRON_NIGHTLY
+  MANUAL_DOWNLOAD
+}
+
+enum ExportStatus {
+  SUCCESS
+  FAILED
+}
+
+model Employee {
+  id                 String             @id @default(uuid())
+  emp_no             String             @unique
+  name               String
+  email              String             @unique
+  password_hash      String
+  role               Role               @default(EMPLOYEE)
+  production_function String?
+  zone               String?
+  is_active          Boolean            @default(true)
+  created_at         DateTime           @default(now())
+  updated_at         DateTime           @updatedAt
+
+  declarations_made       ScrapDeclaration[] @relation("DeclaredBy")
+  dept_approvals          ScrapDeclaration[] @relation("DeptHead")
+  irep_authorizations     ScrapDeclaration[] @relation("IrepAuth")
+  security_authorizations ScrapDeclaration[] @relation("SecurityAuth")
+  vendor_pickups          VendorPickup[]
+  disposal_invoices       DisposalInvoice[]
+  weighment_records       WeighmentRecord[]
+  audit_logs              AuditLog[]
+  documents               Document[]
+
+  @@map("employees")
+}
+
+model ScrapDeclaration {
+  id                 String             @id @default(uuid())
+  declaration_no     String             @unique
+  employee_id        String
+  date               DateTime           @db.Date
+  shift              String
+  time               String
+  zone               String
+  production_function String
+  source             WasteSource
+  description        String?            @db.Text
+  reference_no       String?
+  disposal_route     String             @default("CIRCULARITY")
+  status             DeclarationStatus  @default(DRAFT)
+
+  dept_head_id       String?
+  irep_auth_by       String?
+  security_auth_by   String?
+
+  dept_approved_at   DateTime?
+  irep_authorized_at DateTime?
+  security_authorized_at DateTime?
+  completed_at       DateTime?
+
+  created_at         DateTime           @default(now())
+  updated_at         DateTime           @updatedAt
+
+  employee           Employee           @relation("DeclaredBy", fields: [employee_id], references: [id])
+  dept_head          Employee?          @relation("DeptHead", fields: [dept_head_id], references: [id])
+  irep_authorizer    Employee?          @relation("IrepAuth", fields: [irep_auth_by], references: [id])
+  security_authorizer Employee?         @relation("SecurityAuth", fields: [security_auth_by], references: [id])
+
+  line_items         DeclarationLineItem[]
+  ledger_entries     GenerationDisposalLedger[]
+  excel_exports      ExcelExportLog[]
+
+  @@map("scrap_declarations")
+}
+
+model DeclarationLineItem {
+  id             String    @id @default(uuid())
+  declaration_id String
+  waste_type     WasteType
+  category       String
+  pallet_qty     Decimal?  @db.Decimal(10, 3)
+  weight_kg      Decimal?  @db.Decimal(10, 3)
+  remarks        String?   @db.Text
+  storage_location String?
+  bat_id         String?
+
+  declaration    ScrapDeclaration @relation(fields: [declaration_id], references: [id], onDelete: Cascade)
+
+  @@map("declaration_line_items")
+}
+
+model GenerationDisposalLedger {
+  id            String       @id @default(uuid())
+  date          DateTime     @db.Date
+  category      String
+  waste_type    WasteType
+  opening_stock Decimal      @db.Decimal(12, 3) @default(0)
+  waste_for_day Decimal      @db.Decimal(12, 3) @default(0)
+  disposal      Decimal      @db.Decimal(12, 3) @default(0)
+  closing_stock Decimal      @db.Decimal(12, 3) @default(0)
+  source        LedgerSource
+  declaration_id String?
+
+  declaration   ScrapDeclaration? @relation(fields: [declaration_id], references: [id])
+  created_at    DateTime     @default(now())
+
+  @@map("generation_disposal_ledger")
+}
+
+model VendorPickup {
+  id                   String   @id @default(uuid())
+  date                 DateTime @db.Date
+  vendor_name          String
+  vehicle_entry_no     String
+  vehicle_out_no       String?
+  vehicle_holding_time String?
+  invoice_raise_time   String?
+  invoice_received_time String?
+  category             String
+  remarks              String?  @db.Text
+  created_by           String
+
+  creator              Employee @relation(fields: [created_by], references: [id])
+  created_at           DateTime @default(now())
+
+  @@map("vendor_pickups")
+}
+
+model ExcelExportLog {
+  id              String        @id @default(uuid())
+  triggered_by    ExportTrigger
+  declaration_id  String?
+  filename        String?
+  status          ExportStatus
+  error_message   String?       @db.Text
+  created_at      DateTime      @default(now())
+
+  declaration     ScrapDeclaration? @relation(fields: [declaration_id], references: [id])
+
+  @@map("excel_export_log")
+}
+
+model DisposalInvoice {
+  id               String   @id @default(uuid())
+  invoice_no       String   @unique
+  invoice_date     DateTime @db.Date
+  vendor_name      String
+  vendor_gstin     String?
+  total_net_amount Decimal? @db.Decimal(14, 2)
+  total_tax        Decimal? @db.Decimal(14, 2)
+  total_amount     Decimal? @db.Decimal(14, 2)
+  source_file      String?
+  vehicle_no          String?
+  weighment_serial_no String?
+  gross_weight_kg     Decimal? @db.Decimal(12, 3)
+  tare_weight_kg      Decimal? @db.Decimal(12, 3)
+  net_weight_kg       Decimal? @db.Decimal(12, 3)
+
+  created_by       String
+
+  creator          Employee @relation(fields: [created_by], references: [id])
+  items            DisposalInvoiceItem[]
+  weighment        WeighmentRecord?
+  created_at       DateTime @default(now())
+
+  @@map("disposal_invoices")
+}
+
+// A standalone, trackable record of a vehicle's weighbridge tickets (empty/tare
+// + loaded/gross). Kept separate from DisposalInvoice — rather than just fields
+// on it — so it can be listed, edited, and deleted independently, with its own
+// audit trail, instead of being buried/locked inside the disposal record.
+model WeighmentRecord {
+  id                  String   @id @default(uuid())
+  disposal_invoice_id String?  @unique
+
+  vehicle_no          String?
+
+  empty_serial_no     String?
+  empty_vehicle_no    String?
+  empty_weighed_date  String?
+  empty_weighed_time  String?
+  empty_weight_kg     Decimal? @db.Decimal(12, 3)
+
+  loaded_serial_no       String?
+  loaded_vehicle_no      String?
+  loaded_weighed_date    String?
+  loaded_weighed_time    String?
+  loaded_material        String?
+  loaded_gross_weight_kg Decimal? @db.Decimal(12, 3)
+  loaded_tare_weight_kg  Decimal? @db.Decimal(12, 3)
+  loaded_net_weight_kg   Decimal? @db.Decimal(12, 3)
+
+  created_by          String
+  creator             Employee @relation(fields: [created_by], references: [id])
+  invoice             DisposalInvoice? @relation(fields: [disposal_invoice_id], references: [id])
+
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  @@map("weighment_records")
+}
+
+model DisposalInvoiceItem {
+  id                  String   @id @default(uuid())
+  disposal_invoice_id String
+  material_description String
+  category            String
+  waste_type          WasteType
+  source              WasteSource
+  qty_kg              Decimal  @db.Decimal(12, 3)
+  unit_price          Decimal? @db.Decimal(12, 2)
+  ledger_entry_id     String?
+
+  invoice             DisposalInvoice @relation(fields: [disposal_invoice_id], references: [id], onDelete: Cascade)
+
+  @@map("disposal_invoice_items")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  user_id    String
+  action     String
+  entity     String
+  entity_id  String
+  old_value  Json?
+  new_value  Json?
+  ip_address String?
+  created_at DateTime @default(now())
+
+  user       Employee @relation(fields: [user_id], references: [id])
+
+  @@map("audit_logs")
+}
+
+model Document {
+  id           String   @id @default(uuid())
+  title        String
+  category     String?  // e.g. SOP, POLICY, MANUAL
+  filename     String
+  mime_type    String
+  size_bytes   Int
+  file_data    Bytes
+  uploaded_by  String
+  uploader     Employee @relation(fields: [uploaded_by], references: [id])
+  created_at   DateTime @default(now())
+
+  @@map("documents")
+}
+
+model ReferenceData {
+  id         String   @id @default(uuid())
+  type       String   // PRODUCTION_FUNCTION | ZONE | SHIFT | DISPOSAL_ROUTE | STORAGE_LOCATION | WASTE_CATEGORY
+  code       String
+  label      String
+  group      String?  // group/subgroup name within the type
+  metadata   Json?    // { waste_type, source, nested_subgroup } for WASTE_CATEGORY
+  sort_order Int      @default(0)
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([type, code])
+  @@map("reference_data")
+}
+
+// Generic key-value app settings (feature flags etc.) — admin-managed.
+model AppSetting {
+  key        String   @id
+  value      Json
+  updated_at DateTime @updatedAt
+
+  @@map("app_settings")
+}

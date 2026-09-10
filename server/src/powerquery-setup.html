@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReSource Management — Power Query Setup Guide</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #F5F7FA; color: #1A1A1A; padding: 32px; }
+  header { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; }
+  header img { height: 36px; }
+  h1 { font-size: 1.6rem; color: #0068B3; }
+  h2 { font-size: 1.15rem; color: #0068B3; margin-bottom: 12px; }
+  .card { background: white; border-radius: 8px; border: 1px solid #E5E7EB; padding: 24px; margin-bottom: 24px; }
+  .step { display: flex; gap: 16px; margin-bottom: 16px; align-items: flex-start; }
+  .step-num { background: #0068B3; color: white; border-radius: 50%; width: 28px; height: 28px; min-width: 28px;
+              display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .85rem; }
+  .step-body { flex: 1; }
+  .step-body p { line-height: 1.6; color: #374151; }
+  .endpoint { background: #F0F7FF; border: 1px solid #BFDBFE; border-radius: 6px; padding: 10px 14px;
+              font-family: 'Cascadia Code', 'Courier New', monospace; font-size: .85rem; color: #1E40AF;
+              margin: 8px 0; word-break: break-all; }
+  .badge { display: inline-block; background: #D1FAE5; color: #065F46; border-radius: 999px;
+           padding: 2px 10px; font-size: .75rem; font-weight: 600; margin-left: 8px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th { background: #0068B3; color: white; text-align: left; padding: 10px 14px; font-size: .85rem; }
+  td { padding: 10px 14px; border-bottom: 1px solid #E5E7EB; font-size: .875rem; }
+  tr:nth-child(even) td { background: #F9FAFB; }
+  .note { background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 12px 16px; border-radius: 4px; margin-top: 16px; font-size: .875rem; }
+</style>
+</head>
+<body>
+<header>
+  <div style="width:40px;height:40px;background:#0068B3;border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:1.1rem">N</div>
+  <h1>ReSource Management — Live Excel / Power Query Setup</h1>
+</header>
+
+<div class="card">
+  <h2>Available Live Endpoints <span class="badge">ACTIVE</span></h2>
+  <table>
+    <tr><th>Endpoint</th><th>Description</th><th>Returns</th></tr>
+    <tr><td class="endpoint">/api/v1/live/ledger</td><td>Generation &amp; Disposal Ledger</td><td>Array of daily ledger rows</td></tr>
+    <tr><td class="endpoint">/api/v1/live/declarations</td><td>All declarations with totals</td><td>Array of declaration records</td></tr>
+    <tr><td class="endpoint">/api/v1/live/summary</td><td>Daily &amp; weekly KPI totals</td><td>Summary object</td></tr>
+    <tr><td class="endpoint">/api/v1/live/vendor-pickups</td><td>Vendor pickup log</td><td>Array of pickup records</td></tr>
+  </table>
+  <div class="note"><strong>Authentication:</strong> All live endpoints require a Bearer token. You must obtain your JWT access token from the login endpoint and include it as a header in every Power Query request.</div>
+</div>
+
+<div class="card">
+  <h2>Step-by-Step: Connect Excel via Power Query</h2>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <p><strong>Open Excel</strong> → Click the <strong>Data</strong> tab on the ribbon.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <p>Click <strong>Get Data</strong> → <strong>From Other Sources</strong> → <strong>From Web</strong>.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <p>Select <strong>Advanced</strong> and enter the URL:</p>
+      <div class="endpoint">http://[your-server]:4000/api/v1/live/ledger</div>
+      <p>Replace <code>[your-server]</code> with the server's IP or hostname.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <p>In the <strong>HTTP request header parameters</strong> section, add:</p>
+      <div class="endpoint">Authorization: Bearer &lt;your-jwt-token&gt;</div>
+      <p>Obtain your token by calling <code>POST /api/v1/auth/login</code> with your emp_no and password. The <code>access_token</code> field in the response is your Bearer token.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <p>Click <strong>OK</strong>. Power Query will fetch the data. In the Power Query Editor that opens, the JSON array is automatically converted to a table. Click <strong>Close &amp; Load</strong> to load it into a sheet.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">6</div>
+    <div class="step-body">
+      <p><strong>Set auto-refresh:</strong> Go to <strong>Data</strong> → <strong>Queries &amp; Connections</strong>. Right-click your query → <strong>Properties</strong>. Under <em>Usage</em>, check <strong>Refresh every X minutes</strong> and enter your preferred interval (e.g., 15). Also check <strong>Refresh data when opening the file</strong>.</p>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Optional Query Parameters</h2>
+  <table>
+    <tr><th>Endpoint</th><th>Parameter</th><th>Example</th></tr>
+    <tr><td>/live/ledger</td><td>date_from, date_to, source, waste_type</td><td><code>?date_from=2025-01-01&source=BAT</code></td></tr>
+    <tr><td>/live/declarations</td><td>(none — returns latest 500)</td><td>—</td></tr>
+    <tr><td>/live/summary</td><td>(none)</td><td>—</td></tr>
+    <tr><td>/live/vendor-pickups</td><td>(none — returns latest 200)</td><td>—</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Excel Report Export</h2>
+  <p>When a declaration is approved through the full chain and reaches <strong>COMPLETED</strong> status, the system automatically regenerates the full Excel report on the server. Facility managers can download the latest report or a custom date range from the <strong>Live Excel</strong> page in the web app at any time.</p>
+</div>
+</body>
+</html>
